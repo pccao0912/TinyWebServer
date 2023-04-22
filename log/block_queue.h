@@ -42,6 +42,36 @@ public:
         }
         m_mutex.unlock();
     }
+
+    void clear() {
+        m_mutex.lock();
+        m_size = 0;
+        m_front = -1;
+        m_back = -1;
+        m_mutex.unlock();
+    }
+
+    bool full() {
+        m_mutex.lock();
+        if (m_size > m_max_size) {
+            // 满了
+            m_mutex.unlock();
+            return true;
+        }
+        m_mutex.unlock();
+        return false;
+    }
+
+    bool empty() {
+        m_mutex.lock();
+        if (m_size == 0) {
+            // 空
+            m_mutex.unlock();
+            return true;
+        }
+        m_mutex.lock();
+        return false;
+    }
 };
 
 #endif
