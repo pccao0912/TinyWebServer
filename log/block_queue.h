@@ -72,6 +72,126 @@ public:
         m_mutex.lock();
         return false;
     }
-};
 
+    bool front(T &value) {
+        // 返回队首元素
+        m_mutex.lock();
+        if (m_size == 0)
+        {
+            m_mutex.unlock();
+            return false;
+        }
+        value = m_array[m_front];
+        m_mutex.unlock();
+        return true;
+    }
+
+    bool back(T &value) {
+        // 返回队尾元素
+        m_mutex.lock();
+        if (m_size == 0)
+        {
+            m_mutex.unlock();
+            return false;
+        }
+        value = m_array[m_back];
+        m_mutex.unlock();
+        return true;
+    }
+
+    int size() {
+        int temp  = 0;
+        m_mutex.lock();
+        temp = m_size;
+        m_mutex.unlock();
+        return temp;
+    }
+
+    int max_size() {
+        int temp = 0;
+        m_mutex.lock();
+        temp = m_max_size;
+        m_mutex.unlock();
+        return temp;
+    }
+
+    bool push(const T &item)
+    {
+        /*  往队列添加元素，需要将所有使用队列的线程先唤醒
+            当有元素push进队列,相当于生产者生产了一个元素
+            若当前没有线程等待条件变量,则唤醒无意义 
+        */ 
+        m_mutex.lock();
+
+        if (m_size >= m_max_size)
+        {
+            m_cond.broadcast(); // broadcast函数以广播的方式唤醒所有等待目标条件变量的线程
+            m_mutex.unlock();
+            return false;
+        }
+        m_back = (m_back + 1) % m_max_size;
+        m_array[m_back] = item;
+        m_size++;
+        m_cond.broadcast();
+
+        m_mutex.unlock();
+        return true;
+    }
+
+    bool pop(T &item)
+    {
+        m_mutex.lock();
+        // 如果队列中没有元素，等待条件变量
+        while (m_size <= 0)
+        {
+            if (!m_cond.wait(m_mutex.get()))
+            {
+                m_mutex.unlock();
+                return false;
+            }
+        }
+
+        m_front = (m_front + 1) % m_max_size;
+        item = m_array[m_front];
+        m_size--;
+
+        m_mutex.unlock();
+        return true;
+    }
+
+    // 超时处理重载版本
+    bool pop(T &item, int ms_timeout)
+    {
+        struct timespec t = {0, 0};
+        struct timeval now = {0, 0};
+        gettimeofday(&now, NULL);
+
+        m_mutex.lock();
+
+        if (m_size <= 0)
+        {
+            t.tv_sec = now.tv_sec + ms_timeout / 1000;
+            t.tv_nsec = (ms_timeout % 1000) * 1000;
+            if (!m_cond.timewait(m_mutex.get(), t))
+            {
+                m_mutex.unlock();
+                return false;
+            }
+        }
+
+        if (m_size <= 0)
+        {
+            m_mutex.unlock();
+            return false;
+        }
+
+        m_front = (m_front + 1) % m_max_size;
+        item = m_array[m_front];
+        m_size--;
+
+        m_mutex.unlock();
+        
+        return true;
+    }
+};
 #endif
