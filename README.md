@@ -20,3 +20,6 @@ block_queue.h:
 
 2023/4/22  
 Implemented block_queue.h
+
+2023/4/23  
+Add log.h
